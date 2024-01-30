@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>weather-news-corona</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            background-color: #f2f2f2;
+            color: #333;
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            background-color: #d2daff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            text-align: center;
+            width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        h1 {
+            color: #333;
+        }
+
+        .result-container {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+        }
+        button[type="submit"] {
+            background-color: #333;
+            border: none;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            margin-top: 15px;
+        }
+
+        button[type="submit"]:hover {
+            background-color: #555;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: none;
+            border-bottom: 2px solid #aaa;
+            background-color: transparent;
+            transition: border-bottom-color 0.3s ease;
+        }
+        #map {
+            height: 400px;
+        }
+        .footer {
+            background-color: #333;
+            color: #fff;
+            padding: 20px 0;
+            text-align: center;
+        }
+
+        .footer p {
+            margin: 0;
+        }
+        #adviceResult {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        #adviceResult p {
+            font-size: 18px;
+            color: #333;
+            line-height: 1.5;
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+<section class="header">
+    <div class="header-main bg-light-pink">
+        <div class="container">
+            <div class="col-md-auto">
+                <nav class="navbar navbar-expand-lg navbar-light w-100" id="header-navbar">
+                    <a class="navbar-brand font-weight-bold" href="/">news</a>
+                    <button class="navbar-toggler" type="button" data-toggle="collapse"
+                            data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent"
+                            aria-expanded="false" aria-label="Toggle navigation">
+                        <span class="navbar-toggler-icon"></span>
+                    </button>
+                    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                        <ul class="navbar-nav ml-auto">
+                            <li class="nav-item"><a class="nav-link text-uppercase" data-toggle="none"
+                                                    href="/weather">Weather</a></li>
+                        </ul>
+                    </div>
+                </nav>
+            </div>
+        </div>
+    </div>
+</section>
+<section class="container mt-4">
+    <div class="form-group">
+        <h2>Advice of the Day</h2>
+        <div id="adviceResult"></div>
+    </div>
+</section>
+
+<section>
+    <div class="container mt-4">
+        <form id="weatherForm">
+            <div class="form-group">
+                <label for="cityInput">City:</label>
+                <input type="text" class="form-control" id="cityInput" placeholder="Enter city" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Get Weather</button>
+        </form>
+        <div class="mt-3" id="weatherResult"></div>
+    </div>
+    <div id="map"></div>
+
+</section>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        document.getElementById('weatherForm').addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const city = document.getElementById('cityInput').value;
+
+            fetch('http://localhost:3000/getWeather', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ city }),
+            })
+                .then(response => response.json())
+                .then(result => {
+                    const weatherResult = document.getElementById('weatherResult');
+                    if (weatherResult) {
+                        weatherResult.innerHTML = formatWeatherData(result.weatherData);
+
+                        const mapContainer = document.createElement('div');
+                        mapContainer.id = 'map';
+                        weatherResult.appendChild(mapContainer);
+
+
+                        const map = L.map('map').setView([result.weatherData.coord.lat, result.weatherData.coord.lon], 10);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+                        L.marker([result.weatherData.coord.lat, result.weatherData.coord.lon]).addTo(map);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching weather data:', error.message);
+                    const weatherResult = document.getElementById('weatherResult');
+                    if (weatherResult) {
+                        weatherResult.innerText = 'Error fetching weather data';
+                    }
+                });
+        });
+
+        function formatWeatherData(data) {
+            const iconUrl = `http://openweathermap.org/img/w/${data.weather[0].icon}.png`;
+
+            return `
+                <div class="weather-card">
+                    <h3>${data.name}, ${data.sys.country}</h3>
+                    <img src="${iconUrl}" alt="Weather Icon">
+                    <p>Temperature: ${data.main.temp}°C</p>
+                    <p>Feels Like: ${data.main.feels_like}°C</p>
+                    <p>Description: ${data.weather[0].description}</p>
+                    <p>Humidity: ${data.main.humidity}%</p>
+                    <p>Pressure: ${data.main.pressure} hPa</p>
+                    <p>Wind Speed: ${data.wind.speed} m/s</p>
+                </div>
+                `;
+        }
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        fetchAdvice();
+
+        function fetchAdvice() {
+            fetch('http://localhost:3000/getAdvice')
+                .then(response => response.json())
+                .then(result => {
+                    const adviceResult = document.getElementById('adviceResult');
+                    if (adviceResult) {
+                        adviceResult.innerHTML = `<p>${result.advice}</p>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching advice:', error.message);
+                    const adviceResult = document.getElementById('adviceResult');
+                    if (adviceResult) {
+                        adviceResult.innerText = 'Error fetching advice';
+                    }
+                });
+        }
+    });
+</script>
+
+<footer class="footer">
+    <div class="container">
+        <p>Ali Abdulla</p>
+    </div>
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+</body>
+
+</html>
